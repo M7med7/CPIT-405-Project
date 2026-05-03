@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-light: #fdfaf6; /* Very soft warm background */
+  --color-brand-dark: #221f1d;  /* Soft black/brown for text */
+  --color-brand-primary: #9b6a46; /* Warm brown/camel from the design */
+  --color-brand-secondary: #e6dfd7; /* Soft card background */
+  
+  --font-sans: 'Inter', 'Tajawal', sans-serif;
+}
+
+@layer base {
+  html {
+    font-family: 'Inter', 'Tajawal', sans-serif;
+    color: var(--color-brand-dark);
+    background-color: var(--color-brand-light);
+  }
+}
+
+/* Custom utilities for RTL flipping where needed, though standard flex/logical properties are preferred */
+.rtl-flip {
+  transform: scaleX(-1);
+}
+
+[dir="rtl"] .rtl-flip {
+  transform: scaleX(1); /* Assuming the base icon is already RTL-friendly or needs un-flipping */
+}

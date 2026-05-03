@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import cornicheImg from '../assets/jeddah_corniche.jpg';
 
 // Mock data in case DB is empty for demo purposes
 const MOCK_PLACES = [
@@ -20,7 +21,7 @@ const MOCK_PLACES = [
     description: 'A beautiful waterfront stretching along the Red Sea, featuring the iconic King Fahd Fountain, parks, and restaurants.',
     location_area: 'Ash Shati',
     duration_mins: 120,
-    image_url: 'https://images.unsplash.com/photo-1621683285744-8df606ac2fb3?q=80&w=800&auto=format&fit=crop',
+    image_url: cornicheImg,
     tags: ['sea', 'family', 'sunset'],
   },
   {

@@ -107,7 +107,7 @@ const Places = () => {
                     <MapPin size={14} />
                     <span>{place.location_area}</span>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1" title={t('duration')}>
                     <Clock size={14} />
                     <span>{place.duration_mins} {t('mins')}</span>
                   </div>

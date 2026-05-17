@@ -1,168 +1,302 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { supabase } from '../../lib/supabaseClient';
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
-import { Calendar, Clock, Loader2, ArrowLeft, MapPin, Copy } from 'lucide-react';
+import { usePlanDetails } from '../../hooks/usePlanDetails';
+import { copyPlan } from '../../services/planService';
+import { catOf } from '../../utils/categoryUtils';
+import { detectDayBreaks, computeTotalMinutes } from '../../utils/planCalculations';
+import { getDayLabel } from '../../utils/plannerUtils';
+import {
+  Calendar, Clock, ArrowRight, MapPin, Copy, Share2, Loader2,
+} from 'lucide-react';
 import WeatherWidget from '../../components/WeatherWidget';
 
-const PlanDetails = () => {
-  const { id } = useParams();
-  const { t } = useTranslation();
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  
-  const [plan, setPlan] = useState(null);
-  const [stops, setStops] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const fetchPlanDetails = async () => {
-      try {
-        setLoading(true);
-        // Fetch Plan details
-        const { data: planData, error: planError } = await supabase
-          .from('plans')
-          .select(`
-            *,
-            profiles(username)
-          `)
-          .eq('id', id)
-          .single();
-
-        if (planError) throw planError;
-        setPlan(planData);
-
-        // Fetch Stops
-        const { data: stopsData, error: stopsError } = await supabase
-          .from('plan_stops')
-          .select(`
-            id, arrival_time, duration_mins, notes, order_index,
-            places(name, location_area, category, image_url)
-          `)
-          .eq('plan_id', id)
-          .order('order_index', { ascending: true });
-
-        if (stopsError) throw stopsError;
-        setStops(stopsData || []);
-
-      } catch (err) {
-        console.error("Error fetching plan details:", err);
-        setError("Could not load plan details. It might be private or deleted.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (id) {
-      fetchPlanDetails();
-    }
-  }, [id]);
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center py-32">
-        <Loader2 className="animate-spin text-brand-primary" size={48} />
-      </div>
-    );
-  }
-
-  if (error || !plan) {
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-20 text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Oops!</h2>
-        <p className="text-gray-500 mb-8">{error}</p>
-        <button onClick={() => navigate(-1)} className="text-brand-primary hover:underline flex items-center justify-center gap-2 mx-auto">
-          <ArrowLeft size={16} /> Go Back
-        </button>
-      </div>
-    );
-  }
-
-  const isOwner = user?.id === plan.user_id;
+const StopCard = ({ stop, index, align = 'end' }) => {
+  const { Icon, bg, fg, label } = catOf(stop.places?.category);
+  const mapsUrl = stop.places?.maps_url ||
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      (stop.places?.name ?? '') + ' ' + (stop.places?.location_area ?? '') + ' جدة'
+    )}`;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      
-      {/* Header */}
-      <button onClick={() => navigate(-1)} className="text-gray-500 hover:text-brand-dark mb-6 flex items-center gap-2 transition-colors">
-        <ArrowLeft size={20} /> Back
-      </button>
+    <div className="bg-white rounded-2xl border border-brand-secondary/40 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+      {stop.places?.image_url && (
+        <img src={stop.places.image_url} alt={stop.places?.name}
+          className="w-full h-32 object-cover" />
+      )}
+      <div className={`p-4 flex flex-col gap-2 ${align === 'start' ? 'items-start text-start' : 'items-end text-end'}`}>
+        <div className={`flex items-center gap-2 w-full ${align === 'start' ? 'flex-row' : 'flex-row-reverse'}`}>
+          <span className="text-2xl font-black text-brand-dark tabular-nums" dir="ltr">
+            {stop.arrival_time?.slice(0, 5) ?? '—'}
+          </span>
+          <span className="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+            {stop.duration_mins} د
+          </span>
+        </div>
 
-      <div className="bg-white rounded-3xl p-8 shadow-sm border border-brand-secondary mb-8 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-2 h-full bg-brand-primary"></div>
-        
-        <div className="flex flex-col md:flex-row justify-between items-start gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-brand-dark mb-2">{plan.title}</h1>
-            <p className="text-gray-600 mb-6 max-w-2xl">{plan.description}</p>
-            
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-              <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
-                <Calendar size={16} className="text-brand-primary" />
-                <span className="font-medium">{new Date(plan.date).toLocaleDateString()}</span>
-              </div>
-              <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
-                <Clock size={16} className="text-brand-primary" />
-                <span className="font-medium" dir="ltr">{plan.start_time.slice(0, 5)}</span>
-              </div>
-              <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
-                <span className="font-medium">By @{plan.profiles?.username || 'Anonymous'}</span>
+        <h3 className="font-black text-brand-dark text-base leading-snug">{stop.places?.name}</h3>
+
+        <div className={`flex items-center gap-1.5 ${align === 'start' ? '' : 'flex-row-reverse'}`}>
+          <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: bg }}>
+            <Icon size={10} style={{ color: fg }} />
+          </div>
+          {label && <span className="text-[10px] text-gray-400">{label}</span>}
+          <span className="text-xs text-gray-400">· {stop.places?.location_area}</span>
+        </div>
+
+        {stop.notes && (
+          <div className="w-full bg-brand-secondary/20 rounded-xl px-3 py-2 text-xs text-gray-600">
+            {stop.notes}
+          </div>
+        )}
+
+        <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
+          className={`flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-medium ${align === 'start' ? '' : 'flex-row-reverse'}`}>
+          <MapPin size={11} />
+          عرض على الخريطة
+        </a>
+      </div>
+    </div>
+  );
+};
+
+const PlanDetails = () => {
+  const { id }   = useParams();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const { plan, stops, loading, error } = usePlanDetails(id);
+  const [copying, setCopying] = useState(false);
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/plans/${id}`;
+    try { await navigator.clipboard.writeText(url); } catch {}
+    try { if (navigator.share) await navigator.share({ title: plan?.title, url }); } catch {}
+    toast.success('تم نسخ الرابط ✓');
+  };
+
+  const handleCopyPlan = async () => {
+    if (!user) { navigate('/login'); return; }
+    setCopying(true);
+    try {
+      await copyPlan(plan, stops, user.id);
+      toast.success('تم نسخ الجدول إلى جداولك ✓');
+      navigate('/my-plans');
+    } catch (e) {
+      toast.error(e.message ?? 'حدث خطأ. حاول مجددًا.');
+      setCopying(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="flex justify-center items-center min-h-[60vh]">
+      <Loader2 className="animate-spin text-brand-primary" size={40} />
+    </div>
+  );
+
+  if (error || !plan) return (
+    <div className="max-w-md mx-auto px-4 py-24 text-center">
+      <p className="text-4xl mb-4">😕</p>
+      <h2 className="text-xl font-bold text-brand-dark mb-2">تعذر تحميل الجدول</h2>
+      <p className="text-gray-400 text-sm mb-8">{error}</p>
+      <button onClick={() => navigate(-1)}
+        className="flex items-center gap-2 mx-auto text-brand-primary font-semibold hover:underline">
+        <ArrowRight size={16} /> العودة
+      </button>
+    </div>
+  );
+
+  const isOwner     = user?.id === plan.user_id;
+  const totalMins   = computeTotalMinutes(stops);
+  const stopDays    = detectDayBreaks(stops);
+  const hasMultiDay = (stopDays[stopDays.length - 1] ?? 1) > 1;
+  const dateLabel   = plan.date
+    ? new Date(plan.date).toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    : null;
+
+  return (
+    <div className="min-h-screen bg-brand-light pb-24 lg:pb-12">
+
+      <div className="bg-white border-b border-brand-secondary/40">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-5 pb-6">
+
+          <button onClick={() => navigate(-1)}
+            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-brand-dark mb-5 transition-colors">
+            <ArrowRight size={16} /> رجوع
+          </button>
+
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-brand-dark leading-snug mb-1">
+                {plan.title}
+              </h1>
+              {plan.description && (
+                <p className="text-sm text-gray-500 mt-1 mb-4 max-w-xl">{plan.description}</p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                {dateLabel && (
+                  <span className="flex items-center gap-1.5 bg-brand-secondary/50 text-brand-dark px-3 py-1.5 rounded-full font-medium">
+                    <Calendar size={11} className="text-brand-primary" />
+                    {dateLabel}
+                  </span>
+                )}
+                {plan.start_time && (
+                  <span className="flex items-center gap-1.5 bg-brand-secondary/50 text-brand-dark px-3 py-1.5 rounded-full font-medium" dir="ltr">
+                    <Clock size={11} className="text-brand-primary" />
+                    {plan.start_time.slice(0, 5)}
+                  </span>
+                )}
+                {totalMins > 0 && (
+                  <span className="flex items-center gap-1.5 bg-brand-secondary/50 text-brand-dark px-3 py-1.5 rounded-full font-medium">
+                    <Clock size={11} className="text-gray-400" />
+                    {totalMins} دقيقة
+                  </span>
+                )}
+                <span className="flex items-center gap-1.5 bg-gray-100 text-gray-500 px-3 py-1.5 rounded-full">
+                  @{plan.profiles?.username || 'مجهول'}
+                </span>
               </div>
             </div>
-          </div>
 
-          <div className="flex flex-col gap-4 items-end">
-            <WeatherWidget targetDate={plan.date} />
-            
-            {!isOwner && (
-              <button className="flex items-center gap-2 bg-brand-dark text-white px-5 py-2.5 rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm whitespace-nowrap">
-                <Copy size={18} />
-                Copy Plan
-              </button>
+            {plan.date && (
+              <div className="shrink-0 hidden sm:block">
+                <WeatherWidget targetDate={plan.date} />
+              </div>
             )}
           </div>
+
+          {plan.date && (
+            <div className="sm:hidden mt-3">
+              <WeatherWidget targetDate={plan.date} />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Timeline of Stops */}
-      <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-200 before:to-transparent">
-        
-        {stops.map((stop, index) => (
-          <div key={stop.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-            {/* Timeline dot */}
-            <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-brand-primary text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 font-bold text-sm z-10">
-              {index + 1}
-            </div>
-            
-            {/* Card */}
-            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <div className="text-brand-primary font-bold text-lg" dir="ltr">{stop.arrival_time.slice(0, 5)}</div>
-                  <h3 className="font-bold text-brand-dark text-lg">{stop.places?.name}</h3>
-                </div>
-                <span className="text-xs font-semibold bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                  {stop.duration_mins} mins
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-1 text-sm text-gray-500 mb-4">
-                <MapPin size={14} />
-                <span>{stop.places?.location_area}</span>
-              </div>
-
-              {stop.notes && (
-                <div className="bg-orange-50/50 p-3 rounded-xl border border-brand-secondary/30 text-sm text-gray-700">
-                  <span className="font-semibold block mb-1">Notes:</span>
-                  {stop.notes}
-                </div>
-              )}
-            </div>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        {stops.length === 0 ? (
+          <div className="text-center py-16 text-gray-400 text-sm bg-white rounded-2xl border border-brand-secondary/40">
+            لا توجد محطات في هذا الجدول
           </div>
-        ))}
+        ) : (
+          <>
+            <div className="flex flex-col gap-3 lg:hidden">
+              {stops.flatMap((stop, i) => {
+                const isNewDay = i > 0 && stopDays[i] > stopDays[i - 1];
+                const items = [];
 
+                if (hasMultiDay && isNewDay) {
+                  items.push(
+                    <div key={`day-${i}`} className="flex items-center gap-3 py-1 my-1">
+                      <div className="flex-1 h-px bg-brand-secondary" />
+                      <span className="text-[11px] font-black text-brand-dark bg-brand-secondary px-3 py-1.5 rounded-full shrink-0">
+                        {getDayLabel(stopDays[i])}
+                      </span>
+                      <div className="flex-1 h-px bg-brand-secondary" />
+                    </div>
+                  );
+                }
+
+                const lineToNext = i < stops.length - 1 && stopDays[i + 1] === stopDays[i];
+                items.push(
+                  <div key={stop.id} className="flex gap-3">
+                    <div className="flex flex-col items-center shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-brand-dark text-white flex items-center justify-center text-xs font-black">
+                        {i + 1}
+                      </div>
+                      {lineToNext && (
+                        <div className="w-px flex-1 bg-brand-secondary/60 mt-1 min-h-[1.5rem]" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 mb-3">
+                      <StopCard stop={stop} index={i} align="end" />
+                    </div>
+                  </div>
+                );
+
+                return items;
+              })}
+            </div>
+
+            <div className="hidden lg:block relative">
+              <div className="absolute inset-y-0 left-1/2 -translate-x-px w-0.5 bg-gradient-to-b from-transparent via-brand-secondary to-transparent" />
+
+              <div className="flex flex-col gap-10">
+                {stops.flatMap((stop, i) => {
+                  const isNewDay = i > 0 && stopDays[i] > stopDays[i - 1];
+                  const isRight  = i % 2 === 0;
+                  const items    = [];
+
+                  if (hasMultiDay && isNewDay) {
+                    items.push(
+                      <div key={`day-${i}`} className="relative flex items-center justify-center py-1 z-10">
+                        <div className="flex items-center gap-4 w-full">
+                          <div className="flex-1 h-px bg-brand-secondary" />
+                          <span className="text-xs font-black text-white bg-brand-dark px-5 py-2 rounded-full shadow-md shrink-0">
+                            {getDayLabel(stopDays[i])}
+                          </span>
+                          <div className="flex-1 h-px bg-brand-secondary" />
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  items.push(
+                    <div key={stop.id} className="relative flex items-center gap-0">
+                      <div className={`w-[calc(50%-2rem)] ${isRight ? 'order-1' : 'order-3'}`}>
+                        {!isRight && <StopCard stop={stop} index={i} align="end" />}
+                      </div>
+                      <div className="order-2 w-16 flex flex-col items-center shrink-0 z-10">
+                        <div className="w-10 h-10 rounded-full bg-brand-dark text-white flex items-center justify-center text-sm font-black shadow-md border-4 border-brand-light">
+                          {i + 1}
+                        </div>
+                      </div>
+                      <div className={`w-[calc(50%-2rem)] ${isRight ? 'order-3' : 'order-1'}`}>
+                        {isRight && <StopCard stop={stop} index={i} align="start" />}
+                      </div>
+                    </div>
+                  );
+
+                  return items;
+                })}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-brand-secondary/40 px-4 py-3 z-30 lg:hidden">
+        <div className="flex gap-2">
+          <button onClick={handleShare}
+            className="flex items-center justify-center gap-2 flex-1 py-3 rounded-2xl font-bold text-sm bg-brand-secondary text-brand-dark active:scale-[0.98] transition-all">
+            <Share2 size={16} /> مشاركة
+          </button>
+          {!isOwner && (
+            <button onClick={handleCopyPlan} disabled={copying}
+              className="flex items-center justify-center gap-2 flex-1 py-3 rounded-2xl font-bold text-sm bg-brand-dark text-white disabled:opacity-60 active:scale-[0.98] transition-all">
+              {copying
+                ? <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
+                : <><Copy size={16} /> نسخ الجدول</>}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="hidden lg:flex max-w-5xl mx-auto px-6 pb-10 justify-end gap-3">
+        <button onClick={handleShare}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm bg-white border border-brand-secondary text-brand-dark hover:bg-brand-secondary/30 transition-colors shadow-sm">
+          <Share2 size={15} /> مشاركة
+        </button>
+        {!isOwner && (
+          <button onClick={handleCopyPlan} disabled={copying}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm bg-brand-dark text-white hover:bg-brand-dark/80 transition-colors shadow-sm disabled:opacity-60">
+            {copying
+              ? <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
+              : <><Copy size={15} /> نسخ الجدول</>}
+          </button>
+        )}
       </div>
 
     </div>

@@ -1,11 +1,10 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-light: #fdfaf6; /* Very soft warm background */
-  --color-brand-dark: #221f1d;  /* Soft black/brown for text */
-  --color-brand-primary: #9b6a46; /* Warm brown/camel from the design */
-  --color-brand-secondary: #e6dfd7; /* Soft card background */
-  
+  --color-brand-light: #fdfaf6;
+  --color-brand-dark: #221f1d;
+  --color-brand-primary: #9b6a46;
+  --color-brand-secondary: #e6dfd7;
   --font-sans: 'Inter', 'Tajawal', sans-serif;
 }
 
@@ -17,11 +16,51 @@
   }
 }
 
-/* Custom utilities for RTL flipping where needed, though standard flex/logical properties are preferred */
-.rtl-flip {
-  transform: scaleX(-1);
+/* Places masonry grid — auto height on mobile/sm, fixed rows on lg */
+.places-grid {
+  align-items: start;
+  grid-auto-rows: auto;
+}
+@media (min-width: 1024px) {
+  .places-grid {
+    align-items: stretch;
+    grid-auto-rows: 290px;
+  }
 }
 
-[dir="rtl"] .rtl-flip {
-  transform: scaleX(1); /* Assuming the base icon is already RTL-friendly or needs un-flipping */
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Animation keyframes ───────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes pop-in {
+  0%   { opacity: 0; transform: scale(0.55) rotate(3deg); }
+  65%  { transform: scale(1.12) rotate(3deg); }
+  100% { opacity: 1; transform: scale(1)    rotate(3deg); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+
+.anim-fade-up { animation: fade-up 0.65s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.anim-fade-in { animation: fade-in 0.5s ease-out both; }
+.anim-pop-in  { animation: pop-in  0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.anim-float   { animation: float   5s ease-in-out infinite; }
+
+/* Respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .anim-fade-up, .anim-fade-in, .anim-pop-in, .anim-float {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }

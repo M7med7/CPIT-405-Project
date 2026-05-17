@@ -1,128 +1,139 @@
-import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
-import { Calendar, Clock, Loader2, Users, Search } from 'lucide-react';
+import { Calendar, Clock, Search, MapPin, Globe, ArrowLeft } from 'lucide-react';
+import { usePublicPlans } from '../hooks/usePublicPlans';
+import { CAT_ICON, CAT_BG, CAT_FG } from '../utils/categoryUtils';
 
 const Explore = () => {
-  const { t } = useTranslation();
-  const [plans, setPlans] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const { plans, loading } = usePublicPlans();
+  const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    const fetchPublicPlans = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('plans')
-          .select(`
-            id, title, description, date, start_time,
-            profiles ( username, avatar_url ),
-            plan_stops(count)
-          `)
-          .eq('is_public', true)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setPlans(data || []);
-      } catch (err) {
-        console.error("Error fetching public plans:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPublicPlans();
-  }, []);
-
-  const filteredPlans = plans.filter(plan => 
-    plan.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (plan.description && plan.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filtered = plans.filter(p =>
+    p.title.toLowerCase().includes(search.toLowerCase()) ||
+    (p.description ?? '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="text-center max-w-2xl mx-auto mb-12">
-        <div className="flex justify-center mb-4 text-brand-primary">
-          <Users size={48} />
-        </div>
-        <h1 className="text-3xl md:text-4xl font-bold text-brand-dark mb-4">{t('explore')}</h1>
-        <p className="text-gray-500 text-lg">
-          Discover schedules created by the Mjadwel community. Get inspired or copy a plan for your next outing.
-        </p>
-      </div>
+    <div className="min-h-screen bg-brand-light">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
 
-      {/* Search */}
-      <div className="max-w-xl mx-auto mb-10 relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-        <input 
-          type="text"
-          placeholder="Search community plans..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-12 pr-4 py-3 rounded-full bg-white shadow-sm border border-gray-200 focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none transition-all"
-        />
-      </div>
+        <div className="mb-8">
+          <p className="text-[11px] font-bold tracking-widest text-gray-400 uppercase mb-2">
+            COMMUNITY · المجتمع
+          </p>
+          <h1 className="text-3xl sm:text-5xl font-black text-brand-dark leading-snug mb-5">
+            إلهام من المجتمع
+          </h1>
 
-      {loading ? (
-        <div className="flex justify-center items-center py-20">
-          <Loader2 className="animate-spin text-brand-primary" size={40} />
+          <div className="relative max-w-lg">
+            <input
+              type="text"
+              placeholder="ابحث في جداول المجتمع..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pe-4 ps-11 py-3 rounded-2xl bg-white border border-brand-secondary/60 text-sm placeholder-gray-400 focus:outline-none focus:border-brand-primary/40 focus:ring-2 focus:ring-brand-primary/10 transition-all"
+            />
+            <Search size={16} className="absolute top-1/2 -translate-y-1/2 start-4 text-gray-400 pointer-events-none" />
+          </div>
         </div>
-      ) : filteredPlans.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-2xl border border-brand-secondary">
-          <p className="text-gray-500 text-lg">No public plans found.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPlans.map(plan => (
-            <div key={plan.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md hover:border-brand-secondary transition-all flex flex-col">
-              
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary font-bold overflow-hidden border border-brand-primary/20">
-                  {plan.profiles?.avatar_url ? (
-                    <img src={plan.profiles.avatar_url} alt={plan.profiles.username} className="w-full h-full object-cover" />
-                  ) : (
-                    (plan.profiles?.username || 'U').charAt(0).toUpperCase()
+
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1,2,3,4,5,6].map(i => (
+              <div key={i} className="bg-white rounded-2xl h-52 animate-pulse border border-brand-secondary/30" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="py-24 flex flex-col items-center gap-3 bg-white rounded-2xl border border-brand-secondary/40">
+            <p className="text-3xl">🗓️</p>
+            <p className="text-gray-500 font-semibold">لا توجد جداول عامة بعد</p>
+            <Link to="/create-jadwal" className="text-brand-primary text-sm font-bold hover:underline mt-1">
+              أنشئ أول جدول وانشره
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map(plan => {
+              const stops      = plan.plan_stops ?? [];
+              const stopCount  = stops.length;
+              const categories = [...new Set(stops.map(s => s.places?.category).filter(Boolean))].slice(0, 4);
+              const username   = plan.profiles?.username;
+              const initials   = username ? username.slice(0, 2) : '؟';
+              const dateLabel  = plan.date
+                ? new Date(plan.date).toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' })
+                : null;
+
+              return (
+                <Link
+                  key={plan.id}
+                  to={`/plans/${plan.id}`}
+                  className="bg-white rounded-2xl border border-brand-secondary/40 p-4 flex flex-col gap-3 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-brand-secondary flex items-center justify-center text-[10px] font-black text-brand-dark shrink-0">
+                        {initials}
+                      </div>
+                      <span className="text-xs text-gray-500 font-medium">@{username || 'مجهول'}</span>
+                    </div>
+                    {dateLabel && (
+                      <div className="flex items-center gap-1 text-[11px] text-gray-400">
+                        <Calendar size={11} />
+                        <span>{dateLabel}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <h3 className="font-black text-brand-dark text-base leading-snug line-clamp-2 text-end">
+                    {plan.title}
+                  </h3>
+
+                  {plan.description && (
+                    <p className="text-xs text-gray-400 leading-relaxed line-clamp-2 text-end">
+                      {plan.description}
+                    </p>
                   )}
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-brand-dark">@{plan.profiles?.username || 'Anonymous'}</div>
-                  <div className="text-xs text-gray-500">Shared a plan</div>
-                </div>
-              </div>
 
-              <h3 className="text-xl font-bold text-brand-dark line-clamp-1 mb-2">{plan.title}</h3>
-              
-              <p className="text-sm text-gray-600 line-clamp-2 mb-6 flex-grow min-h-[40px]">
-                {plan.description || 'No description provided.'}
-              </p>
+                  {categories.length > 0 && (
+                    <div className="flex gap-1.5 justify-end">
+                      {categories.map((cat, i) => {
+                        const Ic = CAT_ICON[cat] ?? Globe;
+                        return (
+                          <div key={i}
+                            className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: CAT_BG[cat] ?? '#eee' }}>
+                            <Ic size={13} style={{ color: CAT_FG[cat] ?? '#888' }} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
-              <div className="flex flex-col gap-2 text-sm text-gray-500 mb-6 bg-gray-50 p-3 rounded-xl">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={16} className="text-brand-primary" />
-                    <span>{new Date(plan.date).toLocaleDateString()}</span>
+                  <div className="flex items-center justify-between pt-2 border-t border-brand-secondary/30 mt-auto">
+                    <div className="flex items-center gap-1 text-[11px] text-brand-primary font-semibold group-hover:gap-2 transition-all">
+                      <span>عرض الجدول</span>
+                      <ArrowLeft size={11} />
+                    </div>
+                    <div className="flex items-center gap-3 text-[11px] text-gray-400">
+                      {plan.start_time && (
+                        <span className="flex items-center gap-1" dir="ltr">
+                          <Clock size={11} />
+                          {plan.start_time.slice(0, 5)}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <MapPin size={11} />
+                        {stopCount} محطة
+                      </span>
+                    </div>
                   </div>
-                  <div className="font-semibold text-brand-dark bg-white px-2 py-1 rounded shadow-sm text-xs">
-                    {plan.plan_stops?.[0]?.count || 0} stops
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock size={16} className="text-brand-primary" />
-                  <span dir="ltr">Starts at: {plan.start_time.slice(0, 5)}</span>
-                </div>
-              </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
-              <Link 
-                to={`/plans/${plan.id}`}
-                className="w-full text-center bg-brand-primary text-white hover:bg-amber-800 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm"
-              >
-                View Itinerary
-              </Link>
-            </div>
-          ))}
-        </div>
-      )}
+      </div>
     </div>
   );
 };

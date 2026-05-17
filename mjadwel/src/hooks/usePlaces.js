@@ -2,48 +2,77 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import cornicheImg from '../assets/jeddah_corniche.jpg';
 
-// Mock data in case DB is empty for demo purposes
 const MOCK_PLACES = [
   {
     id: '1',
-    name: 'Al Balad (Historical Jeddah)',
-    category: 'category_culture',
-    description: 'Explore the ancient heart of Jeddah with its unique coral architecture, bustling souks, and historic mosques.',
-    location_area: 'Al Balad',
-    duration_mins: 180,
-    image_url: 'https://images.unsplash.com/photo-1583416750470-965b2707b355?q=80&w=800&auto=format&fit=crop',
-    tags: ['heritage', 'walking', 'shopping'],
+    name: 'كافية Mooma',
+    category: 'category_cafe',
+    description: 'مقهى متخصص يقدم أجود أنواع القهوة المحمصة في أجواء هادئة ومريحة بحي الزهراء.',
+    location_area: 'حي الزهراء',
+    duration_mins: 60,
+    image_url: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=800&auto=format&fit=crop',
+    tags: ['قهوة', 'أصدقاء', 'هادئ'],
   },
   {
     id: '2',
-    name: 'Jeddah Corniche',
+    name: 'نادي البخوت',
     category: 'category_sea',
-    description: 'A beautiful waterfront stretching along the Red Sea, featuring the iconic King Fahd Fountain, parks, and restaurants.',
-    location_area: 'Ash Shati',
+    description: 'نادي بحري راقٍ على شاطئ جدة يقدم تجربة فريدة على الماء مع إطلالة رائعة.',
+    location_area: 'الشاطئ',
     duration_mins: 120,
-    image_url: cornicheImg,
-    tags: ['sea', 'family', 'sunset'],
+    image_url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=800&auto=format&fit=crop',
+    tags: ['بحر', 'عائلة', 'غروب'],
   },
   {
     id: '3',
-    name: 'Brew92',
+    name: 'مقهى Chino',
     category: 'category_cafe',
-    description: 'A popular local specialty coffee roastery and cafe known for its cozy atmosphere and excellent brews.',
-    location_area: 'Ar Rawdah',
+    description: 'مقهى عصري بطابع آسيوي يقدم مشروبات مميزة وأجواء مريحة في الروضة.',
+    location_area: 'الروضة',
     duration_mins: 60,
-    image_url: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=800&auto=format&fit=crop',
-    tags: ['coffee', 'friends', 'cozy'],
+    image_url: 'https://images.unsplash.com/photo-1445116572660-236099ec97a0?q=80&w=800&auto=format&fit=crop',
+    tags: ['قهوة', 'عصري', 'هادئ'],
   },
   {
     id: '4',
-    name: 'Al Nakheel Restaurant',
+    name: 'Melt Ground',
     category: 'category_restaurant',
-    description: 'Traditional Hijazi cuisine served in a beautiful open-air setting near the sea.',
-    location_area: 'North Corniche',
+    description: 'مطعم متخصص بالتجارب الغذائية المبتكرة والأطباق الإبداعية في البرجي.',
+    location_area: 'البرجي',
     duration_mins: 90,
     image_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=800&auto=format&fit=crop',
-    tags: ['food', 'traditional', 'dinner'],
-  }
+    tags: ['طعام', 'عصري', 'عشاء'],
+  },
+  {
+    id: '5',
+    name: 'البلد التاريخية',
+    category: 'category_culture',
+    description: 'قلب جدة العريق بعمارته المرجانية الفريدة وأسواقه الشعبية ومساجده التاريخية.',
+    location_area: 'البلد',
+    duration_mins: 180,
+    image_url: 'https://images.unsplash.com/photo-1583416750470-965b2707b355?q=80&w=800&auto=format&fit=crop',
+    tags: ['تراث', 'مشي', 'تسوق'],
+  },
+  {
+    id: '6',
+    name: 'كورنيش جدة',
+    category: 'category_sea',
+    description: 'واجهة بحرية جميلة تمتد على البحر الأحمر مع نافورة الملك فهد الشهيرة.',
+    location_area: 'الكورنيش',
+    duration_mins: 120,
+    image_url: cornicheImg,
+    tags: ['بحر', 'عائلة', 'غروب'],
+  },
+  {
+    id: '7',
+    name: 'Brew92',
+    category: 'category_cafe',
+    description: 'محمصة قهوة محلية شهيرة تعرف بأجوائها المريحة وقهوتها المميزة.',
+    location_area: 'الروضة',
+    duration_mins: 60,
+    image_url: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=800&auto=format&fit=crop',
+    tags: ['قهوة', 'أصدقاء', 'مريح'],
+  },
 ];
 
 export const usePlaces = () => {
@@ -62,17 +91,15 @@ export const usePlaces = () => {
 
         if (error) throw error;
 
-        // Use mock data if table is empty
         if (!data || data.length === 0) {
           setPlaces(MOCK_PLACES);
         } else {
           setPlaces(data);
         }
       } catch (err) {
-        console.error("Error fetching places:", err);
+        console.error('Error fetching places:', err);
         setError(err.message);
-        // Fallback to mock on error to keep UI beautiful for the presentation
-        setPlaces(MOCK_PLACES); 
+        setPlaces(MOCK_PLACES);
       } finally {
         setLoading(false);
       }
